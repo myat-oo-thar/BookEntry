@@ -1,9 +1,7 @@
 package group;
 //hello
 
-import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
-import javax.swing.border.LineBorder;
 import javax.swing.plaf.basic.BasicScrollBarUI;
 import javax.swing.table.DefaultTableModel;
 import java.awt.event.*;
@@ -17,7 +15,6 @@ import java.awt.Color;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 
 
@@ -25,13 +22,12 @@ import raven.datetime.DatePicker;
 import raven.datetime.event.DateSelectionEvent;
 import raven.datetime.event.DateSelectionListener;
 
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
-import java.text.SimpleDateFormat;
 
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class Main extends JFrame {
 
@@ -118,6 +114,8 @@ public class Main extends JFrame {
     JButton newBtn2 = new JButton("Delete");
     JButton newBtn3 = new JButton("Cancel");
 
+    JButton returnInBorrow = new JButton("Return");
+
     LocalDateTime now = LocalDateTime.now();
     DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     String formattedDate= now.format(formatter);
@@ -188,6 +186,7 @@ public class Main extends JFrame {
             searchPanel.revalidate();
             searchPanel.repaint();
             searchPanel.setVisible(true);
+
             JTextField searchField = new JTextField("Search by book name or author");
             JButton searchButton = new JButton("Search book");
 
@@ -258,6 +257,7 @@ public class Main extends JFrame {
             bBorrowEntry.setVisible(false);
             bReturnEntry.setVisible(false);
             bLibrarianEntry.setVisible(false);
+            returnInBorrow.setVisible(false);
 
 
 
@@ -847,6 +847,7 @@ public class Main extends JFrame {
             bBorrowEntry.setVisible(false);
             bReturnEntry.setVisible(false);
             bLibrarianEntry.setVisible(false);
+            returnInBorrow.setVisible(false);
 
 
             // creating table for data outputs
@@ -1111,9 +1112,6 @@ public class Main extends JFrame {
                 JTextField tmemberRDate = new JTextField(20);
 
                 tmemberRDate.setText("Select date from calendar");
-
-
-
                 new ThemedDatePicker(tmemberRDate);
 
 
@@ -1334,6 +1332,7 @@ public class Main extends JFrame {
 
     class ShowBorrow implements ActionListener{
         public void actionPerformed(ActionEvent e){
+
             pMainPanel.removeAll();
             pMainPanel.revalidate();
             pMainPanel.repaint();
@@ -1358,6 +1357,7 @@ public class Main extends JFrame {
             pMainPanel.add(bBorrowEntry);
             pMainPanel.add(bEdit);
             pMainPanel.add(deleteBorrow);
+            pMainPanel.add(returnInBorrow);
 
 
             deleteBook.setVisible(false);
@@ -1367,12 +1367,14 @@ public class Main extends JFrame {
             deleteLibrarian.setVisible(false);
 
             bEdit.setVisible(false);
+            returnInBorrow.setVisible(false);
 
             bBookEntry.setVisible(false);
             bMemberEntry.setVisible(false);
             bBorrowEntry.setVisible(true);
             bReturnEntry.setVisible(false);
             bLibrarianEntry.setVisible(false);
+            returnInBorrow.setVisible(false);
 
             // creating table for data outputs
             String[] columns = {"Borrow ID","Book ID","Member ID","Borrow Date","Due Date"};
@@ -1433,6 +1435,7 @@ public class Main extends JFrame {
                 public void mouseClicked(MouseEvent e) {
                     bEdit.setVisible(true);
                     deleteBorrow.setVisible(true);
+                    returnInBorrow.setVisible(true);
 
                     selectedRow = table.rowAtPoint(e.getPoint());
                     selectedColumn = table.columnAtPoint(e.getPoint());
@@ -1460,7 +1463,152 @@ public class Main extends JFrame {
                 catch (SQLException ex) {
                     ex.printStackTrace();
                 }
-                b3.doClick();
+
+
+
+            });
+
+            returnInBorrow.addActionListener(be-> {
+                boolean isReturnFrameOpen = false;
+                if (isReturnFrameOpen) {
+                    return;
+                }
+
+                isReturnFrameOpen = true;
+
+                JFrame frame = new JFrame("Return Book");
+
+                JPanel mainPanel = new JPanel();
+                mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
+                mainPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+
+
+                JLabel description = new JLabel("Select the return date.");
+                description.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+                JLabel dateLabel = new JLabel("Return Date");
+                dateLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+                JTextField returnDateField = new JTextField(20);
+                new ThemedDatePicker(returnDateField);
+
+                returnDateField.setPreferredSize(new Dimension(300, 35));
+                returnDateField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
+                returnDateField.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+                JButton okButton = new JButton("OK");
+                JButton cancelButton = new JButton("Cancel");
+
+                JPanel buttonPanel = new JPanel(new GridLayout(1, 2, 10, 0));
+                buttonPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+                buttonPanel.add(okButton);
+                buttonPanel.add(cancelButton);
+
+
+                mainPanel.add(Box.createVerticalStrut(5));
+                mainPanel.add(description);
+                mainPanel.add(Box.createVerticalStrut(25));
+                mainPanel.add(dateLabel);
+                mainPanel.add(Box.createVerticalStrut(8));
+                mainPanel.add(returnDateField);
+                mainPanel.add(Box.createVerticalStrut(25));
+                mainPanel.add(buttonPanel);
+
+                frame.add(mainPanel);
+
+                frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+                frame.setSize(350, 230);
+                frame.setResizable(false);
+                frame.setLocationRelativeTo(null);
+
+                int tborrowIdText = borrowId;
+                String tborrowDateText = "";
+
+
+
+
+
+                String sqlSelect1 = "select * from borrows where borrowId = "+borrowId;
+                try (Connection conn = DBConnection.getConnection();
+                     Statement statement = conn.createStatement()){
+                    try(ResultSet resultSet = statement.executeQuery(sqlSelect1)){
+
+                        while(resultSet.next()) {
+                            tborrowDateText = resultSet.getString(4);
+
+                        }
+                        System.out.println(tborrowDateText);
+
+                        }
+                    } catch (SQLException ex) {
+                    throw new RuntimeException(ex);
+                }
+
+
+
+                String finalTborrowDateText2 = tborrowDateText;
+
+
+                okButton.addActionListener(le -> {
+                    double tfineText = 0;
+                    String treturnDateText = returnDateField.getText();
+                    LocalDate borrowDate = LocalDate.parse(finalTborrowDateText2);
+                    LocalDate returnDate2 = LocalDate.parse(treturnDateText);
+
+                    long days = ChronoUnit.DAYS.between(borrowDate, returnDate2);
+
+                    if(days<=10){
+                        tfineText= 0;
+                    }else if(days > 10 && days <=30){
+                        tfineText = 3000;
+                    }else if(days > 30){
+                        tfineText= 5000;
+                    } else {
+                        tfineText = 0;
+                    }
+
+                    String sqlInsert = "INSERT INTO returns(borrowId,borrowDate,returnDate,fine) VALUES (?, ?, ?, ?)";
+                    try (Connection conn = DBConnection.getConnection();
+                         PreparedStatement pstatement = conn.prepareStatement(sqlInsert)) {
+
+                        pstatement.setInt(1, tborrowIdText);
+                        pstatement.setString(2, finalTborrowDateText2);
+                        pstatement.setString(3, treturnDateText);
+                        pstatement.setDouble(4, tfineText);
+
+                        pstatement.executeUpdate();
+                    }
+                    catch(SQLException ex1){
+                        ex1.printStackTrace();
+                    }
+                    String sqlDelete = "DELETE FROM borrows WHERE borrowId = "+borrowId;
+                    try (Connection conn = DBConnection.getConnection();
+                         PreparedStatement pstmt = conn.prepareStatement(sqlDelete)) {
+                        pstmt.executeUpdate();
+
+                    }
+                    catch (SQLException ex) {
+                        ex.printStackTrace();
+                    }
+                    frame.dispose();
+                    frame.setVisible(false);
+
+                    b3.doClick();
+                });
+
+                cancelButton.addActionListener(le2 -> {
+                    frame.dispose();
+                    b3.doClick();
+                });
+
+                frame.setSize(250,250);
+                frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+                frame.setLocation(1385,300);
+                frame.setVisible(true);
+
+
 
 
             });
@@ -1624,7 +1772,7 @@ public class Main extends JFrame {
                 tborrowDate.setText("Select date from calendar");
                 tdueDate.setText("Select date from calendar");
 
-                new ThemedDatePicker(tmemberId);
+                new ThemedDatePicker(tdueDate);
                 new ThemedDatePicker(tborrowDate);
 
 
@@ -1843,6 +1991,7 @@ public class Main extends JFrame {
             bBorrowEntry.setVisible(false);
             bReturnEntry.setVisible(true);
             bLibrarianEntry.setVisible(false);
+            returnInBorrow.setVisible(false);
 
             // creating table for data outputs
             String[] columns = {"Return ID","Borrow ID","Borrow Date","Return Date","Fine"};
@@ -2347,6 +2496,7 @@ public class Main extends JFrame {
             bBorrowEntry.setVisible(false);
             bReturnEntry.setVisible(false);
             bLibrarianEntry.setVisible(true);
+            returnInBorrow.setVisible(false);
 
 
             // creating table for data outputs
@@ -3390,8 +3540,11 @@ public class Main extends JFrame {
 
                 } else {
 
+                    passwordField.setText("");
+
                     JOptionPane.showMessageDialog(this,
                             "Invalid username or password!");
+
 
                 }
 
